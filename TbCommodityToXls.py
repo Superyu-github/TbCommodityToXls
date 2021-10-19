@@ -147,7 +147,9 @@ if __name__ == "__main__":
     login = ''
     filter = ''
     type = input("选择需要抓取数据的页面(1:购物车 2:商品详情):")
-    driver = webdriver.Chrome("./chromedriver.exe")
+    chrome_options = webdriver.ChromeOptions()
+    chrome_options.add_experimental_option('excludeSwitches', ['enable-logging'])  # 禁止打印日志
+    driver = webdriver.Chrome("./chromedriver.exe", chrome_options=chrome_options)
     if type == '1':
         driver.get('https://cart.taobao.com/cart.htm')
     else:
@@ -159,7 +161,7 @@ if __name__ == "__main__":
         login = input("登录完成？(y/n)")
 
     if type == '2':
-        print("商品详情页仅支持未收货产品选择导出，若要导出已收货产品，请将选择开关关闭，进行全局页面导出")
+        print("注意：商品详情页仅支持未收货产品选择导出，若要导出已收货产品，请将选择开关关闭，进行全局页面导出")
         switch = input("打开选择开关？(1开 0关)")
 
     while select != "y":
@@ -180,7 +182,7 @@ if __name__ == "__main__":
             sheet.write(count, 4, link[i])
             count += 1
     else:
-        title, item, price, amount, link, totle_price = get_order_data(driver, bool(switch))
+        title, item, price, amount, link, totle_price = get_order_data(driver, bool(int(switch)))
         for i in range(len(title)):
             if filter == 'y':
                 if price[i] == "0.00":
