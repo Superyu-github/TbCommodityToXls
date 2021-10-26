@@ -17,7 +17,9 @@ def get_order_data(driver, select_switch=True):
     price = []
     amount = []
     link = []
-    totle_price = []
+    total_price = 0
+    cacl_price = 0
+
     for i in range(4, 18 + 1):
         for j in range(1, 50):
             try:
@@ -31,22 +33,25 @@ def get_order_data(driver, select_switch=True):
                     link.append(tittle_link.get_attribute('href'))
                     # 获取总价
                     try:
-                        totle_price.append(driver.find_element_by_xpath(
+                        total_price = float(driver.find_element_by_xpath(
                             f'//*[@id="tp-bought-root"]/div[{i}]/div/table/tbody[2]/tr[1]/td[5]/div/div[1]/p/strong/span[2]').text)
                     except NoSuchElementException:
-                        totle_price.append("")
+                        total_price = 0
                     # 获取单价
                     try:
-                        price.append(driver.find_element_by_xpath(
+                        price.append(float(driver.find_element_by_xpath(
+                            f'//*[@id="tp-bought-root"]/div[{i}]/div/table/tbody[2]/tr[{j}]/td[2]/div/p/span[2]').text))
+                        cacl_price += float(driver.find_element_by_xpath(
                             f'//*[@id="tp-bought-root"]/div[{i}]/div/table/tbody[2]/tr[{j}]/td[2]/div/p/span[2]').text)
                     except NoSuchElementException:
-                        price.append("")
+                        price.append(0)
+                        cacl_price += 0
                     # 获取数量
                     try:
-                        amount.append(driver.find_element_by_xpath(
-                            f'//*[@id="tp-bought-root"]/div[{i}]/div/table/tbody[2]/tr[{j}]/td[3]/div/p').text)
+                        amount.append(float(driver.find_element_by_xpath(
+                            f'//*[@id="tp-bought-root"]/div[{i}]/div/table/tbody[2]/tr[{j}]/td[3]/div/p').text))
                     except NoSuchElementException:
-                        amount.append("")
+                        amount.append(0)
                     # 获取商品详情
                     try:
                         item.append(driver.find_element_by_xpath(
@@ -54,8 +59,23 @@ def get_order_data(driver, select_switch=True):
                     except NoSuchElementException:
                         item.append("")
             except NoSuchElementException:
+                bias_price = total_price - cacl_price  # 计算差价
+                if bias_price > 0:
+                    tittle.append("运费+税费")
+                    link.append("")
+                    price.append(bias_price)
+                    amount.append("")
+                    item.append("")
+                elif bias_price < 0:
+                    tittle.append("优惠")
+                    link.append("")
+                    price.append(bias_price)
+                    amount.append("")
+                    item.append("")
+                total_price = 0
+                cacl_price = 0
                 break
-    return tittle, item, price, amount, link, totle_price
+    return tittle, item, price, amount, link
 
 
 # 获取购物车数据
@@ -87,12 +107,21 @@ def get_cart_data(driver):
                     # 获取单价
                     try:
                         try:
-                            price.append(driver.find_element_by_xpath(tianmao + f'li[4]/div/div/div/div/em').text)
-                        except NoSuchElementException:
-                            price.append(driver.find_element_by_xpath(
-                                taobao + f'li[4]/div/div/div/div/em').text)  # 若天猫索引方式报错，尝试淘宝索引方式
+                            try:
+                                price_temp = driver.find_element_by_xpath(tianmao + f'li[4]/div/div/div/div[2]/em').text
+                                price.append(float(price_temp[1:]))  # 去除￥符号
+                            except NoSuchElementException:  # 若不存在div[2]，说明没有降价，只有原价标签div
+                                price_temp = driver.find_element_by_xpath(tianmao + f'li[4]/div/div/div/div/em').text
+                                price.append(float(price_temp[1:]))  # 去除￥符号
+                        except NoSuchElementException:  # 若天猫索引方式报错，尝试淘宝索引方式
+                            try:
+                                price_temp = driver.find_element_by_xpath(taobao + f'li[4]/div/div/div/div[2]/em').text
+                                price.append(float(price_temp[1:]))  # 去除￥符号
+                            except NoSuchElementException:  # 若不存在div[2]，说明没有降价，只有原价标签div
+                                price_temp = driver.find_element_by_xpath(taobao + f'li[4]/div/div/div/div/em').text
+                                price.append(float(price_temp[1:]))  # 去除￥符号
                     except NoSuchElementException:
-                        price.append("")  # 两种方式尝试均报错，说明没有此元素，留空
+                        price.append(0)  # 两种方式尝试均报错，说明没有此元素，留空
                     # 获取详情
                     try:
                         try:
@@ -104,15 +133,15 @@ def get_cart_data(driver):
                     # 获取数量
                     try:
                         try:
-                            amount.append(
+                            amount.append(float(
                                 driver.find_element_by_xpath(tianmao + f'li[5]/div/div/div[1]/input').get_attribute(
-                                    "value"))
+                                    "value")))
                         except NoSuchElementException:
-                            amount.append(
+                            amount.append(float(
                                 driver.find_element_by_xpath(taobao + f'li[5]/div/div/div[1]/input').get_attribute(
-                                    "value"))
+                                    "value")))
                     except NoSuchElementException:
-                        amount.append("")
+                        amount.append(0)
 
             except NoSuchElementException:
                 break
@@ -120,22 +149,14 @@ def get_cart_data(driver):
 
 
 # 创建工作表
-def craet_workbook(type, path="data.xls"):
+def creat_workbook(path="data.xls"):
     workbook = xlwt.Workbook()
     sheet = workbook.add_sheet("Sheet1")
-    if type == '1':
-        sheet.write(0, 0, "商品名")
-        sheet.write(0, 1, "商品详情")
-        sheet.write(0, 2, "单价")
-        sheet.write(0, 3, "数量")
-        sheet.write(0, 4, "链接")
-    else:
-        sheet.write(0, 0, "商品名")
-        sheet.write(0, 1, "商品详情")
-        sheet.write(0, 2, "单价")
-        sheet.write(0, 3, "数量")
-        sheet.write(0, 4, "店铺实付款")
-        sheet.write(0, 5, "链接")
+    sheet.write(0, 0, "商品名")
+    sheet.write(0, 1, "商品详情")
+    sheet.write(0, 2, "单价")
+    sheet.write(0, 3, "数量")
+    sheet.write(0, 4, "链接")
     workbook.save(path)
     return workbook
 
@@ -154,7 +175,7 @@ if __name__ == "__main__":
         driver.get('https://cart.taobao.com/cart.htm')
     else:
         driver.get('https://buyertrade.taobao.com/trade/itemlist/list_bought_items.htm')
-    workbook = craet_workbook(type)  # 创建工作表
+    workbook = creat_workbook()  # 创建工作表
     sheet = workbook.get_sheet("Sheet1")
 
     while login != "y":
@@ -162,7 +183,11 @@ if __name__ == "__main__":
 
     if type == '2':
         print("注意：商品详情页仅支持未收货产品选择导出，若要导出已收货产品，请将选择开关关闭，进行全局页面导出")
-        switch = input("打开选择开关？(1开 0关)")
+        switch = input("打开选择开关？(y/n)")
+        if switch == "y":
+            switch = 1
+        else:
+            switch = 0
 
     while select != "y":
         select = input("请选择需要导出的商品，选择完成？(y/n)")
@@ -171,32 +196,17 @@ if __name__ == "__main__":
     print("正在导出，请稍后......")
     if type == "1":
         title, item, price, amount, link = get_cart_data(driver)
-        for i in range(len(title)):
-            if filter == 'y':
-                if price[i] == "0.00":
-                    continue
-            sheet.write(count, 0, title[i])
-            sheet.write(count, 1, item[i])
-            sheet.write(count, 2, price[i])
-            sheet.write(count, 3, amount[i])
-            sheet.write(count, 4, link[i])
-            count += 1
     else:
-        title, item, price, amount, link, totle_price = get_order_data(driver, bool(int(switch)))
-        for i in range(len(title)):
-            if filter == 'y':
-                if price[i] == "0.00":
-                    continue
-            sheet.write(count, 0, title[i])
-            sheet.write(count, 1, item[i])
-            sheet.write(count, 2, price[i])
-            sheet.write(count, 3, amount[i])
-            sheet.write(count, 4, totle_price[i])
-            sheet.write(count, 5, link[i])
-            count += 1
+        title, item, price, amount, link = get_order_data(driver, bool(int(switch)))
+    for i in range(len(title)):
+        if filter == 'y':
+            if price[i] == 0:
+                continue
+        sheet.write(count, 0, title[i])
+        sheet.write(count, 1, item[i])
+        sheet.write(count, 2, price[i])
+        sheet.write(count, 3, amount[i])
+        sheet.write(count, 4, link[i])
+        count += 1
     workbook.save("data.xls")
     print("导出完毕")
-
-
-
-
