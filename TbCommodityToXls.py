@@ -21,7 +21,7 @@ def get_order_data(driver, select_switch=True):
     cacl_price = 0
 
     for i in range(4, 18 + 1):
-        for j in range(1, 50):
+        for j in range(1, 121):
             try:
                 is_selected = driver.find_element_by_xpath(
                     f'//*[@id="tp-bought-root"]/div[{i}]/div/table/tbody[1]/tr/td[1]/label/span[1]/input').is_selected()
@@ -41,17 +41,21 @@ def get_order_data(driver, select_switch=True):
                     try:
                         price.append(float(driver.find_element_by_xpath(
                             f'//*[@id="tp-bought-root"]/div[{i}]/div/table/tbody[2]/tr[{j}]/td[2]/div/p/span[2]').text))
-                        cacl_price += float(driver.find_element_by_xpath(
+                        price_temp = float(driver.find_element_by_xpath(
                             f'//*[@id="tp-bought-root"]/div[{i}]/div/table/tbody[2]/tr[{j}]/td[2]/div/p/span[2]').text)
                     except NoSuchElementException:
                         price.append(0)
-                        cacl_price += 0
+                        price_temp = 0
                     # 获取数量
                     try:
-                        amount.append(float(driver.find_element_by_xpath(
+                        amount.append(int(driver.find_element_by_xpath(
                             f'//*[@id="tp-bought-root"]/div[{i}]/div/table/tbody[2]/tr[{j}]/td[3]/div/p').text))
+                        amount_temp = int(driver.find_element_by_xpath(
+                            f'//*[@id="tp-bought-root"]/div[{i}]/div/table/tbody[2]/tr[{j}]/td[3]/div/p').text)
                     except NoSuchElementException:
-                        amount.append(0)
+                        amount.append(1)
+                        amount_temp = 1
+                    cacl_price += price_temp * amount_temp  # 计算单项商品价格
                     # 获取商品详情
                     try:
                         item.append(driver.find_element_by_xpath(
@@ -59,18 +63,21 @@ def get_order_data(driver, select_switch=True):
                     except NoSuchElementException:
                         item.append("")
             except NoSuchElementException:
+                total_price = round(total_price, 2)  # 计算结果取两位小数
+                cacl_price = round(cacl_price, 2)  # 计算结果取两位小数
                 bias_price = total_price - cacl_price  # 计算差价
+                bias_price = round(bias_price, 2)  # 计算结果取两位小数
                 if bias_price > 0:
                     tittle.append("运费+税费")
                     link.append("")
                     price.append(bias_price)
-                    amount.append("")
+                    amount.append(1)
                     item.append("")
                 elif bias_price < 0:
                     tittle.append("优惠")
                     link.append("")
                     price.append(bias_price)
-                    amount.append("")
+                    amount.append(1)
                     item.append("")
                 total_price = 0
                 cacl_price = 0
@@ -86,7 +93,7 @@ def get_cart_data(driver):
     amount = []
     link = []
     for i in range(1, 30):
-        for j in range(1, 50):
+        for j in range(1, 121):
             tianmao = f"/html/body/div[1]/div[2]/div[2]/div/div[2]/div[2]/div[{i}]/div/div[2]/div/div/div[2]/div/div[{j}]/div/ul/"  # 天猫店铺索引方式
             taobao = f'/html/body/div[1]/div[2]/div[2]/div/div[2]/div[2]/div[{i}]/div/div[2]/div/div/div[{j}]/div/ul/'  # 淘宝店铺索引方式
             try:
@@ -133,15 +140,15 @@ def get_cart_data(driver):
                     # 获取数量
                     try:
                         try:
-                            amount.append(float(
+                            amount.append(int(
                                 driver.find_element_by_xpath(tianmao + f'li[5]/div/div/div[1]/input').get_attribute(
                                     "value")))
                         except NoSuchElementException:
-                            amount.append(float(
+                            amount.append(int(
                                 driver.find_element_by_xpath(taobao + f'li[5]/div/div/div[1]/input').get_attribute(
                                     "value")))
                     except NoSuchElementException:
-                        amount.append(0)
+                        amount.append(1)
 
             except NoSuchElementException:
                 break
